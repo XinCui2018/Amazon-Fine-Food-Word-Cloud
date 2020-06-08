@@ -1,0 +1,137 @@
+---
+title: "Amazon Fine Food Reviews"
+author: "Xin Cui"
+date: "12/17/2019"
+output: html_document
+---
+
+# Introduction 
+
+Launched in 1995 in the United States as an online bookshop, Amazon has grown into an international e-commerce company with separate retail websites in North America for the United States and Canada. Although being the pioneer in e-retail market has created a treasure trove of reviews for its products, its review system can be abused by sellers or customers writing fake reviews in exchange for incentives.   
+
+My interest in all things data, human behavior and the love for food led me to choose Amazon 500,000 fine food review dataset from Kaggle.
+
+__Data:__ The [dataset](https://www.kaggle.com/snap/amazon-fine-food-reviews) consists of reviews of fine foods from Amazon. Reviews include product and user information, ratings, and a plain text review. Specifically, there are 568,454 reviews, 256,059 users, 74,258 products, and 260 users with over 50 reviews. It also includes reviews from all other Amazon categories.
+
+__Goal:__ The goal is to create a word cloud of Amazon Reviews showing the most common words in comments. 
+
+# Call required libraries
+
+```{r, echo=TRUE, include=TRUE}
+suppressPackageStartupMessages(library(readr))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tm))
+suppressPackageStartupMessages(library(tidyselect))
+suppressPackageStartupMessages(library(SnowballC))
+```
+
+# Load data
+
+```{r, echo=TRUE, include=TRUE}
+review <- read.csv('C:/Users/94020/Desktop/Reviews.csv')
+head(review)
+nrow(review)
+ncol(review)
+```
+
+The review dataset contains 35173 rows and 10 columns.
+
+```{r, echo=TRUE, include=TRUE}
+summary(review)
+```
+
+From the summary we can see that 10 variables are in this dataset. 
+
+* **Id:** Row Id (Categorical variable)
+* **ProductId:** Unique identifier for the product (Categorical variable)
+* **UserId:** Unique identifier for the user (Categorical variable)
+* **ProfileName:** Profile name of the user (Categorical variable)
+* **HelpfulnessNumberator:** Number of users whi found the review helpful (Discrete variable)
+* **HelpfulnessDenominator:** Number of users who indicated whether they found the review helpful or not (Discrete variable)
+* **Score:** Rating between 1 and 5 (Ordinal variable)
+* **Time:** Timestamp for the review (Continuous variable)
+* **Summary:** Brief summary of the review (Character)
+* **Text:** Text of the review (Character)
+
+```{r, echo=TRUE, include=TRUE}
+# Count missing value
+sum(is.na(review))
+```
+
+There are 4 missing values in the dataset, so we need to remove the missing values. 
+
+```{r, echo=TRUE, include=FALSE}
+# Remove missing value
+complete.cases(review)
+Review <- review[complete.cases(review),]
+
+# view structure of the new dataset
+str(Review)
+
+# Inspect new dataset
+sum(is.na(Review))
+```
+
+The new dataset contains 35,172 rows and 10 columns. Also, there is no missing value in the new dataset. Next, I will generate word cloud of first 10,000 reviews
+
+# Generate a word cloud
+
+```{r, echo=TRUE, include=TRUE}
+Rev <- Review[1:10000,]
+cloud <- Corpus(VectorSource(Rev$Text))
+```
+
+# Transformations
+
+```{r, echo=TRUE, include=TRUE}
+# Convert the text to lower case
+cloud <- tm_map(cloud, content_transformer(tolower))
+```
+
+```{r, echo=TRUE, include=TRUE}
+# Remove numbers
+cloud <- tm_map(cloud, removeNumbers)
+```
+
+```{r, echo = TRUE, include=TRUE}
+# Remove english common stopwords
+cloud <- tm_map(cloud, removeWords, stopwords("english"))
+```
+
+```{r, echo=TRUE, include=TRUE}
+# Remove punctuations
+cloud <- tm_map(cloud, removePunctuation)
+```
+
+```{r, echo=TRUE, include=TRUE}
+# Eliminate extra white spaces
+cloud <- tm_map(cloud, stripWhitespace)
+```
+
+```{r, echo=TRUE, include=TRUE}
+# Text stemming (reduces words to their root form)
+cloud <- tm_map(cloud, stemDocument)
+```
+
+# Generate Term Document Matrix
+
+```{r, echo=TRUE, include=TRUE}
+tdm <- TermDocumentMatrix(cloud)
+m <- as.matrix(tdm)
+s <- sort(rowSums(m), decreasing = TRUE)
+df <- data.frame(word = names(s), frequency(s))
+```
+
+# Generate a unique word cloud
+
+```{r, echo=TRUE, include=TRUE}
+# Generate word cloud for words with frequency equal anf greater than 400
+df <- df[1:400,]
+suppressPackageStartupMessages(library("wordcloud"))
+suppressPackageStartupMessages(library("RColorBrewer"))
+par(bg="grey30")
+png("WordCloud.png", width = 700, height = 700, bg="grey30")
+wordcloud(df$word, df$frequency.s., col=terrain.colors(length(df$word), alpha = 0.9), random.order = FALSE, rot.per=0.3)
+title(main = "Word cloud of Amazon Fine Food Reviews", font.main = 1, col.main = "cornsilk3", cex.main = 1.5)
+dev.off()
+```
